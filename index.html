@@ -108,6 +108,10 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
 #toast{position:absolute;left:0;right:0;top:40%;text-align:center;z-index:6;pointer-events:none;font:900 22px "Orbitron";
   letter-spacing:.1em;opacity:0}
 #toast.show{animation:toast 1.3s ease-out}
+.thearts{display:flex;justify-content:center;gap:8px;margin-bottom:4px}
+.thearts svg{width:34px;height:31px;filter:drop-shadow(0 0 8px rgba(255,42,109,.9))}
+.thearts .lost svg{display:block;opacity:.25;filter:none;animation:heartlost .6s ease-out}
+@keyframes heartlost{0%{opacity:1;transform:scale(1.5)}100%{opacity:.25;transform:scale(.85)}}
 @keyframes toast{0%{opacity:0;transform:translateY(20px) scale(.8)}20%{opacity:1;transform:none}75%{opacity:1}100%{opacity:0;transform:translateY(-30px)}}
 
 /* FAIL */
@@ -2567,10 +2571,12 @@ const TYPES=[
 const TARGET=8;                  // cells per type to reach 100%
 const LIVES=3;
 const SPAWN_D=46, D0=4;
-const LEVEL_SECS=10;              // speed steps up every 10 seconds
-const BASE_SPEED=16, SPEED_STEP=5, MAX_SPEED=56;
+const LEVEL_SECS=5;               // speed jumps every 5 seconds
+const BASE_SPEED=18, SPEED_MULT=1.25, MAX_SPEED=85;   // +25% per level
 const levelAt=t=>Math.floor(t/LEVEL_SECS);
-const levelSpeed=l=>Math.min(MAX_SPEED,BASE_SPEED+l*SPEED_STEP);
+const levelSpeed=l=>Math.min(MAX_SPEED,BASE_SPEED*SPEED_MULT**l);
+// seconds between asteroid rows; shrinks each level but stays dodgeable
+const rowGapSecs=l=>Math.max(.34,.5-l*.025);
 const LS='nf27_warp_reward_v1';
 
 let W=0,H=0,DPR=1,vpX=0,vpY=0,shipY=0,laneW=0,unit=1;
@@ -2661,9 +2667,9 @@ function warpPct(){return Math.round(counts.reduce((s,c)=>s+Math.min(c,TARGET),0
 function spawnRow(){
   const elapsed=time;
   // two-asteroid rows get more common each level; one lane is always left open
-  const maxAst=elapsed<4?1:(Math.random()<Math.min(.85,.35+level*.1)?2:1);
+  const maxAst=elapsed<3?1:(Math.random()<Math.min(.9,.45+level*.08)?2:1);
   const lanesArr=[-1,0,1].sort(()=>Math.random()-.5);
-  const astN=Math.random()<Math.max(.03,.1-level*.015)&&elapsed>3?0:maxAst;
+  const astN=Math.random()<Math.max(.02,.08-level*.015)&&elapsed>3?0:maxAst;
   const used=new Set();
   for(let i=0;i<astN;i++){const l=lanesArr[i];used.add(l);objs.push({k:'a',lane:l,d:SPAWN_D,spr:asteroidSprites[Math.random()*4|0],rot:rnd(0,6),vr:rnd(-2,2),sz:rnd(.85,1.15)})}
   const free=lanesArr.filter(l=>!used.has(l));
@@ -2681,6 +2687,7 @@ function burst(x,y,col,n,spd,life){for(let i=0;i<n;i++){const a=Math.random()*Ma
   parts.push({x,y,vx:Math.cos(a)*v,vy:Math.sin(a)*v,life,max:life,col,sz:rnd(1.5,4)})}}
 
 /* ---------- HUD ---------- */
+const HEART_PATH=new Path2D('M12 20.5S2 14.4 2 7.6A5.1 5.1 0 0112 5.4a5.1 5.1 0 0110 2.2c0 6.8-10 12.9-10 12.9z');
 const heartSVG='<svg viewBox="0 0 24 22"><path d="M12 20.5S2 14.4 2 7.6A5.1 5.1 0 0112 5.4a5.1 5.1 0 0110 2.2c0 6.8-10 12.9-10 12.9z" fill="rgba(255,42,109,.35)" stroke="#ff2a6d" stroke-width="2" stroke-linejoin="round"/><path d="M6.5 7.5a2.6 2.6 0 012.6-2" stroke="#fff" stroke-width="1.6" stroke-linecap="round" fill="none" opacity=".8"/></svg>';
 $('lives').innerHTML=heartSVG.repeat(LIVES);
 $('cells').innerHTML=TYPES.map((t,i)=>`<div class="cell" id="cell${i}" style="color:${t.col}"><div class="ic"><i id="cf${i}"></i></div><span><span class="nm">${t.th}</span> <span id="cn${i}">0/${TARGET}</span></span></div>`).join('');
@@ -2690,7 +2697,7 @@ function hud(){
   [...$('lives').children].forEach((s,i)=>s.classList.toggle('off',i>=lives));
   TYPES.forEach((t,i)=>{const c=Math.min(counts[i],TARGET);$('cn'+i).textContent=c+'/'+TARGET;$('cf'+i).style.height=(c/TARGET*100)+'%';$('cell'+i).classList.toggle('done',c>=TARGET)});
 }
-function toast(txt,col){const t=$('toast');t.textContent=txt;t.style.color=col;t.style.textShadow=`0 0 18px ${col}`;t.classList.remove('show');void t.offsetWidth;t.classList.add('show')}
+function toast(txt,col,html){const t=$('toast');if(html)t.innerHTML=html;else t.textContent=txt;t.style.color=col;t.style.textShadow=`0 0 18px ${col}`;t.classList.remove('show');void t.offsetWidth;t.classList.add('show')}
 function flash(col,a){const f=$('flash');f.style.transition='none';f.style.background=col;f.style.opacity=a;requestAnimationFrame(()=>{f.style.transition='opacity .5s';f.style.opacity=0})}
 
 /* ---------- screens ---------- */
@@ -2745,7 +2752,7 @@ function update(dt){
   else if(state==='count')target=6;
   else if(state==='warp'){warpT+=dt;target=15+warpT*warpT*40}
   else if(state==='dead')target=2;
-  speed+=(target-speed)*Math.min(1,dt*(state==='warp'?3:2));
+  speed+=(target-speed)*Math.min(1,dt*(state==='warp'||state==='play'?3:2));
   const dd=speed*dt;dist+=dd;
 
   // stars
@@ -2759,7 +2766,7 @@ function update(dt){
 
   if(state==='play'){
     score+=Math.round(dd*2);
-    nextRow-=dd;if(nextRow<=0){spawnRow();nextRow=rnd(6.5,8.5)-Math.min(2.5,level*.4)}
+    nextRow-=dd;if(nextRow<=0){spawnRow();nextRow=Math.max(speed,levelSpeed(level)*.8)*rowGapSecs(level)*rnd(.9,1.15)}
   }
   // objects
   for(const o of objs){
@@ -2772,8 +2779,8 @@ function update(dt){
         o.gone=true;hud();
         if(warpPct()>=100&&!unlocked){unlocked=true;grantReward();setTimeout(()=>{if(state==='play')toast('REWARD UNLOCKED','#39ff14')},1400)}
       }else if(inv<=0){
-        lives--;inv=1.1;shake=1;flash('#ff2a6d',.45);SFX.hit();buzz([60,40,120]);burst(p.x,p.y-20*unit,'#ff7ae8',40,320*unit,.8);o.gone=true;hud();
-        if(lives<=0)die();else toast('\u2665 -1','#ff5c8d');
+        lives--;inv=1;shake=1;flash('#ff2a6d',.45);SFX.hit();buzz([60,40,120]);burst(p.x,p.y-20*unit,'#ff7ae8',40,320*unit,.8);o.gone=true;hud();
+        if(lives<=0)die();else toast('','#ff5c8d','<div class="thearts">'+heartSVG.repeat(lives)+'<span class="lost">'+heartSVG+'</span></div>-1');
       }
     }
   }
@@ -2968,9 +2975,10 @@ function drawShip(T){
   // wingtip lights
   const bl=Math.sin(T*6)>0;ctx.fillStyle=bl?'#ff2a6d':'#4a0a22';ctx.beginPath();ctx.arc(-71,23,3,0,7);ctx.fill();
   ctx.fillStyle=bl?'#39ff14':'#0f3d08';ctx.beginPath();ctx.arc(71,23,3,0,7);ctx.fill();
-  // shield bubble when invulnerable
-  if(inv>0){ctx.globalAlpha=blink?.15:.45;ctx.strokeStyle='#00f0ff';ctx.lineWidth=3;ctx.shadowColor='#00f0ff';ctx.shadowBlur=20;
-    ctx.beginPath();ctx.ellipse(0,-6,84,62,0,0,7);ctx.stroke();ctx.globalAlpha=1;ctx.shadowBlur=0}
+  // heart outline while invulnerable after a hit
+  if(inv>0){ctx.save();ctx.globalAlpha=blink?.2:.6;ctx.strokeStyle='#ff2a6d';ctx.shadowColor='#ff2a6d';ctx.shadowBlur=20;
+    const hs=7*(1+Math.sin(T*14)*.04);ctx.translate(0,-10);ctx.scale(hs,hs);ctx.translate(-12,-12.5);ctx.lineWidth=3/hs;
+    ctx.stroke(HEART_PATH);ctx.restore()}
   ctx.restore();
 }
 function drawParts(){
