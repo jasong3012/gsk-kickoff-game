@@ -66,6 +66,15 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
 .name input{width:100%;padding:13px 14px;border-radius:12px;border:1px solid rgba(0,240,255,.45);background:rgba(7,2,15,.7);
   color:#fff;font:400 16px "Kanit";outline:none;text-align:center}
 .name input:focus{border-color:var(--orange);box-shadow:0 0 0 3px rgba(255,43,214,.25)}
+@property --ph{syntax:'<color>';inherits:true;initial-value:#ff2bd6}
+.name input:placeholder-shown{animation:phflash 2.4s linear infinite;border-color:var(--ph);
+  box-shadow:0 0 0 1px var(--ph),0 0 16px var(--ph),inset 0 0 12px rgba(255,255,255,.04)}
+.name input::placeholder{color:var(--ph);opacity:1;font-weight:600;text-shadow:0 0 6px var(--ph),0 0 14px var(--ph)}
+@keyframes phflash{
+  0%,30%{--ph:#ff2bd6}  33%{--ph:#3a0a35} 35%,63%{--ph:#00f0ff}
+  65%{--ph:#06343a} 67%,70%{--ph:#00f0ff} 72%{--ph:#06343a}
+  74%,97%{--ph:#fcee0a} 99%{--ph:#3a3605} 100%{--ph:#ff2bd6}}
+@media (prefers-reduced-motion:reduce){.name input:placeholder-shown{animation:none}}
 .foot{font-size:11px;color:var(--muted);text-align:center;margin-top:10px}
 .bottom{width:100%;display:flex;flex-direction:column;align-items:center}
 
@@ -2644,7 +2653,7 @@ const SFX={
   warp:()=>{tone(110,2.4,'sawtooth',.18,8);tone(220,2.4,'sine',.15,6);noise(2.4,.25,2400)},
   win:()=>[523,659,784,1046].forEach((f,i)=>tone(f,.35,'triangle',.2,0,i*.12))
 };
-function music(on){clearInterval(musicTimer);musicTimer=null;if(!on||!AC)return;let step=0;
+function music(on){if(on&&musicTimer&&AC)return;clearInterval(musicTimer);musicTimer=null;if(!on||!AC)return;let step=0;
   const seq=[0,7,12,7,3,7,10,7],root=[110,110,87.31,98];
   musicTimer=setInterval(()=>{if(!AC||muted)return;const r=root[Math.floor(step/16)%4];const n=seq[step%8];
     tone(r*2*Math.pow(2,n/12),.16,'triangle',.05);if(step%4===0)tone(r/2,.3,'sine',.12,.5);if(step%8===4)noise(.06,.05,6000);step++},150)}
@@ -2716,7 +2725,7 @@ function startGame(){
 }
 $('start').onclick=()=>{try{localStorage.setItem('nf27_name',$('nm').value.trim())}catch(e){};startGame()};
 $('retry').onclick=startGame;
-$('again').onclick=()=>{show('intro');refreshIntro()};
+$('again').onclick=()=>{show('intro');refreshIntro();music(true)};
 $('myreward').onclick=()=>showReward(loadReward());
 try{$('nm').value=localStorage.getItem('nf27_name')||''}catch(e){}
 $('nm').addEventListener('keydown',e=>{if(e.key==='Enter'){e.target.blur()}});
@@ -3000,7 +3009,15 @@ function draw(T){
 
 requestAnimationFrame(loop);
 // keep intro background in a gentle warp
-document.addEventListener('visibilitychange',()=>{if(document.hidden){music(false)}else if(state==='play')music(true)});
+const onIntro=()=>$('intro').classList.contains('on');
+document.addEventListener('visibilitychange',()=>{if(document.hidden){music(false)}else if(state==='play'||onIntro())music(true)});
+// start-screen music: try right away (works where the browser allows autoplay),
+// otherwise the first tap / key press anywhere unlocks audio and starts it
+audio();if(onIntro())music(true);
+const unlockAudio=()=>{audio();if(AC&&AC.state==='suspended')AC.resume();
+  if(onIntro()||state==='play')music(true);
+  if(AC&&AC.state!=='suspended')['pointerdown','touchstart','keydown'].forEach(ev=>document.removeEventListener(ev,unlockAudio,true))};
+['pointerdown','touchstart','keydown'].forEach(ev=>document.addEventListener(ev,unlockAudio,true));
 })();
 </script>
 </body>
