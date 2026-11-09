@@ -66,14 +66,24 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
 .name input{width:100%;padding:13px 14px;border-radius:12px;border:1px solid rgba(0,240,255,.45);background:rgba(7,2,15,.7);
   color:#fff;font:400 16px "Kanit";outline:none;text-align:center}
 .name input:focus{border-color:var(--orange);box-shadow:0 0 0 3px rgba(255,43,214,.25)}
-.name input:placeholder-shown{border-color:rgba(255,43,214,.85);animation:phglow 3.2s ease-in-out infinite alternate;
-  box-shadow:0 0 0 1px rgba(255,43,214,.5),0 0 14px rgba(255,43,214,.35),0 0 26px rgba(0,240,255,.12)}
-.name input::placeholder{color:#ffb8f4;opacity:1;font-weight:600;
-  text-shadow:0 0 4px rgba(255,43,214,.9),0 0 12px rgba(255,43,214,.65),0 0 22px rgba(160,32,255,.45)}
-@keyframes phglow{
-  from{box-shadow:0 0 0 1px rgba(255,43,214,.45),0 0 10px rgba(255,43,214,.28),0 0 22px rgba(0,240,255,.08)}
-  to{box-shadow:0 0 0 1px rgba(255,43,214,.7),0 0 20px rgba(255,43,214,.5),0 0 34px rgba(0,240,255,.2)}}
-@media (prefers-reduced-motion:reduce){.name input:placeholder-shown{animation:none}}
+/* RGB gaming glow on the empty name field: a rainbow ring flows around the
+   border, a blurred copy glows behind it, and the placeholder hue cycles */
+@property --rgb-a{syntax:'<angle>';inherits:true;initial-value:0deg}
+@property --rgb-h{syntax:'<number>';inherits:true;initial-value:0}
+.name{position:relative;isolation:isolate;border-radius:12px;
+  --rgb:conic-gradient(from var(--rgb-a),#ff2a6d,#ff7a1a,#fcee0a,#39ff14,#00f0ff,#3d5afe,#a020ff,#ff2bd6,#ff2a6d)}
+.name:has(input:placeholder-shown){animation:rgbspin 4s linear infinite}
+.name:has(input:placeholder-shown)::before,.name:has(input:placeholder-shown)::after{content:"";position:absolute;inset:0;
+  border-radius:12px;background:var(--rgb);pointer-events:none}
+.name:has(input:placeholder-shown)::before{z-index:1;padding:2px;
+  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;
+  mask:linear-gradient(#000 0 0) content-box exclude,linear-gradient(#000 0 0)}
+.name:has(input:placeholder-shown)::after{z-index:-1;inset:-3px;filter:blur(12px);opacity:.75}
+.name input:placeholder-shown{border-color:transparent;background:rgba(9,3,20,.94)}
+.name input::placeholder{opacity:1;font-weight:600;color:hsl(calc(var(--rgb-h) * 1deg) 100% 72%);
+  text-shadow:0 0 6px hsl(calc(var(--rgb-h) * 1deg) 100% 60% / .9),0 0 16px hsl(calc(var(--rgb-h) * 1deg) 100% 55% / .6)}
+@keyframes rgbspin{from{--rgb-a:0deg;--rgb-h:0}to{--rgb-a:360deg;--rgb-h:360}}
+@media (prefers-reduced-motion:reduce){.name:has(input:placeholder-shown){animation:none}}
 .foot{font-size:11px;color:var(--muted);text-align:center;margin-top:10px}
 .bottom{width:100%;display:flex;flex-direction:column;align-items:center}
 
